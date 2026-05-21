@@ -1,12 +1,7 @@
 # 🎯 FITS Image Player v1.0
 ### Native Astrophotography Streaming Engine for Siril
 
-<p align="center">
-  <img src="https://shields.io" alt="Python Version">
-  <img src="https://shields.io" alt="PyQt Version">
-  <img src="https://shields.io" alt="OpenCV">
-  <img src="https://shields.io" alt="Astropy">
-</p>
+[FITS Image Player](https://github.com/user-attachments/assets/7e8bf176-7a26-441a-b383-c3562c17d697)
 
 ## 📝 Description
 This application operates as a frame playback control panel featuring an integrated rendering engine designed to interface with Siril. It inherits Siril's current Working Directory (PWD) to dynamically locate `lights/` and `process/` folders, enabling the batch-processing of multiple target datasets provided that the PWD is set to the common root directory where the dataset subfolders reside; otherwise, it processes one dataset at a time. It applies asynchronous multi-core non-linear midtone stretching to render frames smoothly inside a dynamic canvas playback player.
@@ -46,6 +41,21 @@ While the dynamic canvas player is active, you can interact with the stream usin
 *   `[Left Arrow]` or `[<]` – Go to the Previous Frame.
 *   `[Right Arrow]` or `[>]` – Go to the Next Frame.
 *   `[Esc]`, `[Q]`, or `[X]` – Safely terminate and close the player instance.
+<br>
+<img width="900" height="506" alt="1" src="https://github.com/user-attachments/assets/3de1c316-934e-4799-a5d9-ec2ec2be9ce0" />
+<br>
+<br>
+<img width="900" height="506" alt="2" src="https://github.com/user-attachments/assets/1648e4ba-732d-4a6a-bbea-1ef69e2f21e9" />
+<br>
+<br>
+<img width="900" height="506" alt="3" src="https://github.com/user-attachments/assets/1ad2e0f5-d0d1-4815-a016-a005884143e0" />
+
+## Why?
+I enjoy quickly scrolling through the images captured by my telescope, adding the dimension of time to static frames, and watching satellite or airplane trails streak across the sensor's field of view. 
+I believe that reviewing photos this way brings an extra layer of excitement to the experience. It is also a method for spotting astronomical transients and diagnosing underlying issues within the telescope or camera setup.
+In the past, I relied on a combination of `ffmpeg` and `AstroImageJ` to achieve this. However, I wanted a more seamless, immediate solution directly integrated into [Siril](https://siril.org). 
+As I am not a Python developer, I warmly encourage anyone with the patience and expertise to reach out and report any bugs or suggest improvements. 
+Tested and working on **Debian GNU/Linux 13 (trixie)**. :-)
 
 ---
 ## 🤖 AI Development Disclaimer
