@@ -25,11 +25,6 @@ The engine relies on the following core Python libraries:
 *   `numpy` (Fast Matrix Operations and Percentile Calculations)
 *   `astropy` (Atomic FITS Header and Data Matrix Extraction)
 
-To install all dependencies at once, run:
-```bash
-pip install PyQt6 opencv-python numpy astropy
-```
-
 ---
 
 ## 🚀 Usage Note
