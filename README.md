@@ -1,4 +1,4 @@
-# 🎯 FITS Image Player v1.0
+# 🎯 FITS Image Player v1.0.0001
 ### Native Astrophotography Streaming Engine for Siril
 
 [FITS Image Player](https://github.com/user-attachments/assets/7e8bf176-7a26-441a-b383-c3562c17d697)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ===============================================================================
-🎯 FITS IMAGE PLAYER v1.0 - NATIVE ASTROPHOTOGRAPHY STREAMING ENGINE
+🎯 FITS IMAGE PLAYER v1.0.0001 - NATIVE ASTROPHOTOGRAPHY STREAMING ENGINE
 ===============================================================================
 
 DESCRIPTION:
@@ -33,6 +33,15 @@ implicitly inheriting the runtime context and folder structures.
 
 import os
 import sys
+
+try:
+    import sirilpy as s
+except ImportError:
+    print("Error: sirilpy module not found.")
+    sys.exit(1)
+
+s.ensure_installed("numpy", "opencv-python", "PyQt6", "astropy")
+
 import re
 import json
 import time
@@ -45,7 +54,7 @@ from astropy.io import fits
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QLabel, QSlider,
                              QPushButton, QGroupBox, QProgressBar, QComboBox,
                              QCheckBox, QDoubleSpinBox, QVBoxLayout, QHBoxLayout,
-                             QGridLayout)
+                             QGridLayout, QScrollArea)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QRect
 from PyQt6.QtGui import QImage, QPixmap, QPainter, QPen, QColor
 
@@ -76,44 +85,62 @@ def get_desktop_resolution():
 
 def scan_for_lights_directories(root_path):
     """
-    Conﬁned 2-level directory scanner.
-    Level 1: Checks if the current inherited PWD itself is a valid lights directory.
-    Level 2: Scans immediate child subfolders for folders named 'lights' or 'Lights'
-    containing at least one FITS file, bypassing heavy recursive deep walking.
+    Scanner di directory confinato a 2 livelli ottimizzato per Linux e Windows.
+    Normalizza i percorsi ed elimina i doppioni case-insensitive causati da Windows.
     """
     lights_dirs = []
     extensions = ('.fits', '.fit', '.FITS', '.FIT')
 
-    # Level 1: Current directory match
-    base_name = os.path.basename(root_path.rstrip(os.sep))
-    if base_name in ["lights", "Lights"]:
+    if not root_path:
+        return []
+
+    # Normalizza il percorso radice per il sistema operativo corrente
+    root_path = os.path.abspath(root_path)
+
+    # Livello 1: Controllo se la cartella corrente è già 'lights'
+    base_name = os.path.basename(root_path)
+    if base_name.lower() == "lights":
         try:
             if any(f.lower().endswith(extensions) for f in os.listdir(root_path) if os.path.isfile(os.path.join(root_path, f))):
                 return [root_path]
         except: pass
 
-    # Level 2: Immediate subfolder scan
+    # Livello 2: Scansione delle sottocartelle immediate (Ciano, Giallo, Magenta...)
     try:
         for item in os.listdir(root_path):
             full_path = os.path.join(root_path, item)
             if os.path.isdir(full_path):
-                if item not in ["lights", "Lights"]:
-                    sub_lights = os.path.join(full_path, "lights")
-                    if os.path.isdir(sub_lights):
-                        if any(f.lower().endswith(extensions) for f in os.listdir(sub_lights) if os.path.isfile(os.path.join(sub_lights, f))):
-                            lights_dirs.append(sub_lights)
-
-                    sub_lights_cap = os.path.join(full_path, "Lights")
-                    if os.path.isdir(sub_lights_cap):
-                        if any(f.lower().endswith(extensions) for f in os.listdir(sub_lights_cap) if os.path.isfile(os.path.join(sub_lights_cap, f))):
-                            lights_dirs.append(sub_lights_cap)
+                # Se la cartella analizzata non è essa stessa la cartella lights
+                if item.lower() != "lights":
+                    # Cerchiamo le varianti in modo case-insensitive
+                    for sub_name in os.listdir(full_path):
+                        if sub_name.lower() == "lights":
+                            sub_lights_path = os.path.join(full_path, sub_name)
+                            if os.path.isdir(sub_lights_path):
+                                try:
+                                    if any(f.lower().endswith(extensions) for f in os.listdir(sub_lights_path) if os.path.isfile(os.path.join(sub_lights_path, f))):
+                                        lights_dirs.append(os.path.abspath(sub_lights_path))
+                                except: pass
                 else:
-                    if any(f.lower().endswith(extensions) for f in os.listdir(full_path) if os.path.isfile(os.path.join(full_path, f))):
-                        lights_dirs.append(full_path)
+                    # Se siamo nella cartella principale e c'è una cartella 'lights' diretta
+                    try:
+                        if any(f.lower().endswith(extensions) for f in os.listdir(full_path) if os.path.isfile(os.path.join(full_path, f))):
+                            lights_dirs.append(os.path.abspath(full_path))
+                    except: pass
     except:
         pass
 
-    return sorted(list(set(lights_dirs)))
+    # 🎯 TRUCCO CROSS-PLATFORM: Elimina i doppioni reali e virtuali normalizzando i percorsi in minuscolo
+    seen = set()
+    unique_dirs = []
+    for d in lights_dirs:
+        # Su Windows compariamo in minuscolo per collassare Ciano\Lights e Ciano\lights in un unico percorso
+        normalized_key = os.path.normpath(d).lower() if os.name == 'nt' else os.path.normpath(d)
+        if normalized_key not in seen:
+            seen.add(normalized_key)
+            unique_dirs.append(os.path.normpath(d)) # Mantiene il percorso originale formattato bene
+
+    return sorted(unique_dirs)
 
 
 def gather_and_validate_fits_multi(directory_list):
@@ -224,21 +251,42 @@ class FITSImagePlayerGui(QMainWindow):
         main_layout = QVBoxLayout(central_widget)
         main_layout.setContentsMargins(15, 10, 15, 15)
 
-        # Sezione 1: Target Folder Dataset Selection
+        # Sezione 1: Target Folder Dataset Selection (CON BARRA DI SCORRIMENTO AUTOMATICA)
         group_dataset = QGroupBox(" Target Dataset Selection ")
         layout_dataset = QVBoxLayout(group_dataset)
+
+        # 1. Creiamo l'area di scorrimento
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFixedHeight(120) # Blocca l'altezza massima del box dei filtri per non spingere giù lo stretch
+        scroll_area.setStyleSheet("QScrollArea { border: none; background-color: transparent; }")
+
+        # 2. Creiamo un contenitore interno per i checkbox
+        scroll_widget = QWidget()
+        scroll_widget.setStyleSheet("background-color: transparent;")
+        scroll_layout = QVBoxLayout(scroll_widget)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setSpacing(5)
+
         self.chk_dirs = {}
         if not self.detected_dirs:
             lbl_warn = QLabel("⚠ NO ASTROPHOTOGRAPHY DATASETS FOUND IN PWD")
             lbl_warn.setStyleSheet("color: #B71C1C; font-weight: bold;")
-            layout_dataset.addWidget(lbl_warn)
+            scroll_layout.addWidget(lbl_warn)
         else:
-            for d in self.detected_dirs[:4]:
+            # Rimosso il limite [:4] per caricare TUTTI i filtri esistenti nel PC
+            for d in self.detected_dirs:
                 chk = QCheckBox(os.path.relpath(d, os.getcwd()))
                 chk.stateChanged.connect(self.check_state)
-                layout_dataset.addWidget(chk)
+                scroll_layout.addWidget(chk)
                 self.chk_dirs[d] = chk
+            scroll_layout.addStretch() # Spinge i checkbox verso l'alto se sono pochi
+
+        # 3. Agganciamo il contenitore all'area di scorrimento e l'area al gruppo principale
+        scroll_area.setWidget(scroll_widget)
+        layout_dataset.addWidget(scroll_area)
         main_layout.addWidget(group_dataset)
+
 
         # Sezione 2: Non-linear Stretch Threshold Parameters
         group_stretch = QGroupBox(" Pre-Conversion Stretch Parameters ")
@@ -909,6 +957,14 @@ class AstroViewPlayerWindow(QMainWindow):
         self.video_widget.mouseDoubleClickEvent = self.on_mouse_double_click
         self.video_widget.paintEvent = self.on_paint_event
 
+        self.current_q_img = None
+        self.prepare_current_frame() # Genera subito il primo frame
+
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.play_next_frame)
+        self.timer.start(int(self.fps_value * 1000) if self.fps_value > 0 else 100)
+
+
     def find_siril_sequence_file(self):
         """Locates the fixed light_.seq file down from Siril's working folder."""
         try:
@@ -916,7 +972,7 @@ class AstroViewPlayerWindow(QMainWindow):
             candidate_nested = os.path.join(pwd_dir, "lights", "process", "light_.seq")
             if os.path.exists(candidate_nested): return candidate_nested
 
-            candidate_nested_cap = os.path.join(pwd_dir, "Lights", "process", "light_.seq")
+            candidate_nested_cap = os.path.join(pwd_dir, "lights", "process", "light_.seq")
             if os.path.exists(candidate_nested_cap): return candidate_nested_cap
 
             candidate_filter_root = os.path.join(pwd_dir, "process", "light_.seq")
@@ -940,14 +996,20 @@ class AstroViewPlayerWindow(QMainWindow):
         seq_path = self.find_siril_sequence_file()
         if not seq_path: return
         try:
-            with open(seq_path, "r") as f:
+            with open(seq_path, "r", errors="ignore") as f:
                 lines = f.readlines()
 
             frame_index = 0
+            has_valid_data = False  # Diventa True solo se troviamo reali righe 'R' con dati FWHM
+
             for line in lines:
                 line_str = line.strip()
-                if line_str.startswith("R0 ") or line_str.startswith("R "):
+
+                # Intercetta le righe di registrazione R (che in questo set scarno non ci sono)
+                if re.match(r'^R[0-9]?[\s\t]+', line_str):
+                    line_str = line_str.replace(",", ".")
                     parts = line_str.split()
+
                     if len(parts) >= 3:
                         try:
                             fwhm_x = float(parts[1])
@@ -955,10 +1017,53 @@ class AstroViewPlayerWindow(QMainWindow):
                             if fwhm_x > 0 and fwhm_y > 0:
                                 fwhm_media = np.sqrt(fwhm_x * fwhm_y)
                                 self.siril_hfr_vector[frame_index] = f"{fwhm_media * 0.52:.2f}px"
-                            else: self.siril_hfr_vector[frame_index] = "N/A"
-                        except ValueError: self.siril_hfr_vector[frame_index] = "N/A"
-                    else: self.siril_hfr_vector[frame_index] = "N/A"
+                                has_valid_data = True
+                            else:
+                                self.siril_hfr_vector[frame_index] = "N/A"
+                        except ValueError:
+                            self.siril_hfr_vector[frame_index] = "N/A"
+                    else:
+                        self.siril_hfr_vector[frame_index] = "N/A"
                     frame_index += 1
+
+            # --- APPLICA IL REFRESH IN RAM E SCRIVE SUL JSON DELLA CACHE ---
+            if self.metadata_vector:
+                base_cache_dir = os.path.join(os.getcwd(), "astroview_cache")
+                global_reg_path = os.path.join(base_cache_dir, "datasets_registry.json")
+
+                # Carica il registro JSON usando la funzione di rientro sicuro dello script
+                datasets_registry = safe_load_json_with_retry(global_reg_path)
+                json_updated = False
+
+                for i, meta in enumerate(self.metadata_vector):
+                    fname = meta.get("filename", "")
+                    match_num = re.search(r'_(\d+)\.(fits|fit)$', fname, re.IGNORECASE)
+                    seq_target_idx = int(match_num.group(1)) - 1 if match_num else i
+
+                    # Se il file .seq esiste ma non ha i dati di allineamento delle stelle
+                    if not has_valid_data:
+                        real_hfr = "no light_.seq info"
+                    else:
+                        real_hfr = self.siril_hfr_vector.get(seq_target_idx, "N/A")
+
+                    # Aggiorna la telemetria immediata per il playback corrente (RAM)
+                    meta["hfr"] = real_hfr
+
+                    # Rimuove "Calc..." dal file JSON su disco inserendo lo stato reale della sessione
+                    if fname in datasets_registry:
+                        if datasets_registry[fname]["meta_item"].get("hfr") != real_hfr:
+                            datasets_registry[fname]["meta_item"]["hfr"] = real_hfr
+                            json_updated = True
+
+                # Salva le modifiche sul disco se necessario
+                if json_updated:
+                    try:
+                        with open(global_reg_path, "w") as f_ptr:
+                            json.dump(datasets_registry, f_ptr, indent=4)
+                    except Exception as json_err:
+                        print(f"[Debug Cache JSON] Errore di scrittura HFR: {json_err}")
+            # --------------------------------------------------------
+
         except Exception as e:
             print(f"[Sequence Link Exception] Failed indexing sequence items: {e}")
 
@@ -976,16 +1081,19 @@ class AstroViewPlayerWindow(QMainWindow):
         elif event.key() in [Qt.Key.Key_Right, Qt.Key.Key_Greater]:
             self.is_paused = True
             self.idx = (self.idx + 1) % self.total_frames
+            self.prepare_current_frame()
             self.update()
         elif event.key() in [Qt.Key.Key_Left, Qt.Key.Key_Less]:
             self.is_paused = True
             self.idx = (self.idx - 1 + self.total_frames) % self.total_frames
+            self.prepare_current_frame()
             self.update()
         elif event.key() in [Qt.Key.Key_Escape, Qt.Key.Key_Q, Qt.Key.Key_X]: self.close()
 
     def play_next_frame(self):
         if not self.is_paused and not self.is_drawing:
             self.idx = (self.idx + 1) % self.total_frames
+            self.prepare_current_frame()
             self.update()
 
     def on_mouse_press(self, event):
@@ -1011,42 +1119,49 @@ class AstroViewPlayerWindow(QMainWindow):
             new_y1 = max(0, min(self.h_raw - h_sel, center_y - h_sel // 2))
             self.crop_box = [new_x1, new_y1, new_x1 + w_sel, new_y1 + h_sel]
             self.is_cropped = True
+            self.prepare_current_frame()
             self.update()
 
     def on_mouse_double_click(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.is_cropped = False
             self.crop_box = None
+            self.prepare_current_frame()
             self.update()
+
+    def prepare_current_frame(self):
+        """Carica l'immagine da disco e prepara la QImage isolandola dal paintEvent."""
+        # 1. Carichiamo l'immagine base (Manteniamo self.frame_base visibile per il videoregistratore)
+        self.frame_base = cv2.imread(self.cached_png_paths[self.idx])
+        if self.frame_base is None:
+            return
+
+        # 2. Gestione del Crop ROI originale (Manteniamo self.frame_active visibile a livello di istanza)
+        if self.is_cropped and self.crop_box is not None:
+            x1, y1, x2, y2 = self.crop_box
+            sub = self.frame_base[y1:y2, x1:x2]
+            self.frame_active = cv2.resize(sub, (self.w_raw, self.h_raw), interpolation=cv2.INTER_AREA)
+        else:
+            self.frame_active = self.frame_base.copy()
+
+        # 3. Conversione dello spazio colore per la GUI
+        frame_rgb = cv2.cvtColor(self.frame_active, cv2.COLOR_BGR2RGB)
+        h, w, ch = frame_rgb.shape
+
+        # 4. Generiamo la QImage facendo una copia profonda per svuotare i puntatori volatili di OpenCV
+        self.current_q_img = QImage(frame_rgb.data, w, h, ch * w, QImage.Format.Format_RGB888).copy()
 
     def on_paint_event(self, event):
         painter = QPainter(self.video_widget)
-        frame_base = cv2.imread(self.cached_png_paths[self.idx])
-        if frame_base is None: return
 
+        # Usiamo l'immagine pre-allocata senza allocare nuova memoria RAM
+        if self.current_q_img is not None:
+            painter.drawImage(0, 0, self.current_q_img)
+
+        # Recupero dei metadati originali dello script
         meta = self.metadata_vector[self.idx]
 
-        if self.is_cropped and self.crop_box is not None:
-            x1, y1, x2, y2 = self.crop_box
-            sub = frame_base[y1:y2, x1:x2]
-            frame_active = cv2.resize(sub, (self.w_raw, self.h_raw), interpolation=cv2.INTER_AREA)
-        else:
-            frame_active = frame_base.copy()
-
-        frame_rgb = cv2.cvtColor(frame_active, cv2.COLOR_BGR2RGB)
-        h, w, ch = frame_rgb.shape
-        q_img = QImage(frame_rgb.data, w, h, ch * w, QImage.Format.Format_RGB888)
-        painter.drawImage(0, 0, q_img)
-
-        current_hfr = "N/A"
-        filename_str = meta.get("fits_real_name", "")
-        match_num = re.search(r'_(\d+)\.(fits|fit)$', filename_str, re.IGNORECASE)
-        if match_num:
-            try:
-                seq_target_idx = int(match_num.group(1)) - 1
-                current_hfr = self.siril_hfr_vector.get(seq_target_idx, "N/A")
-            except: pass
-        else: current_hfr = self.siril_hfr_vector.get(self.idx, "N/A")
+        current_hfr = meta.get("hfr", "N/A")
 
         if self.band_h > 0:
             painter.fillRect(0, self.h_raw, self.w_raw, self.band_h, QColor("#000000"))
@@ -1085,6 +1200,9 @@ class AstroViewPlayerWindow(QMainWindow):
             painter.drawRect(QRect(int(self.ix), int(self.iy), int(self.cx_curr - self.ix), int(self.cy_curr - self.iy)))
 
         # WebM Video Recorder RAM-to-Disk implementation
+        frame_base = self.frame_base
+        frame_active = self.frame_active
+
         if self.save_video:
             should_record = True
             if self.record_after_poi and not self.is_cropped:
