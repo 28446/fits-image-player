@@ -1,4 +1,4 @@
-# 🎯 FITS Image Player v1.0.0093
+# 🎯 FITS Image Player v1.0.0094
 ### Astrophotography Review & Streaming Engine for Siril
 
 ![FITS Image Player GUI](./immagini/GUI.png)
@@ -51,9 +51,9 @@ This application operates as a frame playback control panel featuring an integra
 
 <br>
 
-### Live Preview (Crop & Zoom)
+### Demo
 <div align="center">
-  <video src="./immagini/demo_crop.webm" width="800" controls title="FITS Player Demo">
+  <video src="./immagini/demo.webm" width="800" controls title="FITS Player Demo">
     Your browser does not support the video tag.
   </video>
 </div>
