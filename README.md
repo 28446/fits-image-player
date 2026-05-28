@@ -1,4 +1,4 @@
-# 🎯 FITS Image Player v1.0.0092
+# 🎯 FITS Image Player v1.0.0093
 ### Astrophotography Review & Streaming Engine for Siril
 
 ![FITS Image Player GUI](./immagini/GUI.png)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ===============================================================================
-🎯 FITS IMAGE PLAYER v1.0.0092 - PIXEL-PERFECT GRID FIX
+🎯 FITS IMAGE PLAYER v1.0.0093 - PIXEL-PERFECT GRID FIX
 ===============================================================================
 VERSION: 1.0.0092
 FIXES:
@@ -13,6 +13,14 @@ FIXES:
 
 import os
 import sys
+try:
+    import sirilpy as s
+except ImportError:
+    print("Error: sirilpy module not found.")
+    sys.exit(1)
+
+s.ensure_installed("numpy", "opencv-python", "PyQt6", "astropy")
+
 import re
 import json
 import time
