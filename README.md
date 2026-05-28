@@ -1,62 +1,76 @@
-# 🎯 FITS Image Player v1.0.0001
-### Native Astrophotography Streaming Engine for Siril
+# 🎯 FITS Image Player v1.0.0092
+### Native Astrophotography Review & Streaming Engine for Siril
 
-[FITS Image Player](https://github.com/user-attachments/assets/7e8bf176-7a26-441a-b383-c3562c17d697)
+![FITS Image Player GUI](./immagini/GUI.png)
 
 ## 📝 Description
-This application operates as a frame playback control panel featuring an integrated rendering engine designed to interface with Siril. It inherits Siril's current Working Directory (PWD) to dynamically locate `lights/` and `process/` folders, enabling the batch-processing of multiple target datasets provided that the PWD is set to the common root directory where the dataset subfolders reside; otherwise, it processes one dataset at a time. It applies asynchronous multi-core non-linear midtone stretching to render frames smoothly inside a dynamic canvas playback player.
+This application operates as a frame playback control panel featuring an integrated rendering engine designed specifically for **Siril**. It inherits Siril's current Working Directory (CWD) to dynamically locate `lights/` and `process/` folders. It applies a **Balanced Background Neutralization** stretch—a multi-core, non-linear midtone stretching algorithm—to render frames smoothly with neutral sky backgrounds and perfectly balanced color channels.
 
 ---
 
 ## 🌟 Key Features
-*   **Localized Relative Path Resolution:** Operates strictly within Siril's runtime path context without breaking folder structures.
-*   **Granular Cache Persistence:** Smart frame-by-frame cache evaluation to process only newly added images or sets.
-*   **Dynamic Histogram Rendering:** Real-time generation of source FITS linear histograms before stretching.
-*   **Multi-core OpenCV Debayering:** High-performance, hardware-scaled debayer patterns for raw color matrices.
-*   **Live HFR Telemetry Tracking:** Dynamic indexing and extraction of real-time star FWHM/HFR metrics parsed straight from Siril's `light_.seq`.
-*   **Analytical Session Video Recording:** Export your streaming session directly into a WebM container using full-frame or focused Region of Interest (ROI) zoom cropping.
 
----
-
-## 🛠️ Dependencies
-The engine relies on the following core Python libraries:
-*   `PyQt6` (GUI Architecture and Hardware Display Resolution Scaling)
-*   `opencv-python` (High-performance Image Manipulation and WebM Video Recording)
-*   `numpy` (Fast Matrix Operations and Percentile Calculations)
-*   `astropy` (Atomic FITS Header and Data Matrix Extraction)
+*   **Balanced Pro Stretching:** Uses an advanced algorithm that normalizes channels based on median values (removing the typical green cast) and applies a user-adjustable MTF curve (Black point, White point, and Midtones).
+*   **Dynamic Histogram:** Unlike older versions, the real-time histogram now reflects the **final pixel values of the processed PNG**, showing the distribution after your manual or auto-stretch is applied.
+*   **Smart Debayering:** Features an **Auto-Detect** mode that reads the Bayer pattern directly from the FITS header. It also allows **Manual Override** (RGGB, BGGR, GBRG, GRBG) for files with missing or incorrect metadata.
+*   **FITS Header Extraction:** Automatically extracts and displays critical session data from headers, including:
+    *   **Target** (OBJECT)
+    *   **Coordinates** (RA/DEC formatted to HMS/DMS)
+    *   **Date of Observation** (DATE-OBS)
+    *   **Hardware Info:** Aperture Diameter (APTDIA), Focal Length (FOCALLEN), and Pixel Scale.
+    *   **Exposure Parameters:** Exposure Time and Gain.
+*   **User-Defined Scaling:** To optimize performance on different display resolutions, users can set a custom **Scaling Factor (%)** for the generated preview frames.
+*   **Live HFR Tracking:** If registration data is found, it performs dynamic indexing of real-time star quality metrics (HFR/FWHM) parsed directly from Siril's `*light*.seq` files.
+*   **Session Recording:** Export your playback directly into a **WebM** video container, supporting both full-frame view and focused Region of Interest (ROI) crops.
 
 ---
 
 ## 🚀 Usage Note
-⚠️ **Important Execution Context:** This script is engineered to be executed exclusively within Siril's working environment or script directory, implicitly inheriting its runtime context, environment variables, and automated folder tree hierarchies.
+⚠️ **Execution Context:** This script must be executed by Siril, within Siril's working environment. 
+*   **Registered View:** If a `process/` folder exists with a valid Siril `.seq` file, the player will use registered (stabilized) frames and display HFR telemetry.
+*   **Raw View:** If no processing data is found, it falls back to the `lights/` folder, displaying raw frames (no stabilization or HFR tracking).
 
-### Keyboard Controls Quick Guide
-While the dynamic canvas player is active, you can interact with the stream using the following bindings:
-*   `[Space]` – Play / Pause the stream execution.
-*   `[Left Arrow]` or `[<]` – Go to the Previous Frame.
-*   `[Right Arrow]` or `[>]` – Go to the Next Frame.
-*   `[Esc]`, `[Q]`, or `[X]` – Safely terminate and close the player instance.
+### Keyboard Controls
+| Key | Action |
+| :--- | :--- |
+| `[Space]` | Play / Pause the stream |
+| `[Left Arrow]` | Previous Frame (pauses playback) |
+| `[Right Arrow]` | Next Frame (pauses playback) |
+| `[Double Click]` | Reset Zoom / ROI |
+| `[Esc]` / `[Q]` | Safely close the player |
+
 <br>
-<img width="900" height="506" alt="1" src="https://github.com/user-attachments/assets/3de1c316-934e-4799-a5d9-ec2ec2be9ce0" />
+
+![FITS Image Player STRETCH](./immagini/STRETCH.png)
+*Manual Stretch Calibration Dialog*
+
 <br>
+
+![FITS Image Player PLAYER](./immagini/PLAYER.png)
+*The Playback Interface with Telemetry and Grid*
+
 <br>
-<img width="900" height="506" alt="2" src="https://github.com/user-attachments/assets/1648e4ba-732d-4a6a-bbea-1ef69e2f21e9" />
+
+### Live Preview (Crop & Zoom)
+<div align="center">
+  <video src="./immagini/demo_crop.webm" width="800" controls title="FITS Player Demo">
+    Your browser does not support the video tag.
+  </video>
+</div>
+
 <br>
-<br>
-<img width="900" height="506" alt="3" src="https://github.com/user-attachments/assets/1ad2e0f5-d0d1-4815-a016-a005884143e0" />
 
 ## Why?
-I enjoy quickly scrolling through the images captured by my telescope, adding the dimension of time to static frames, and watching satellite or airplane trails streak across the sensor's field of view. 
-I believe that reviewing photos this way brings an extra layer of excitement to the experience. It is also a method for spotting astronomical transients and diagnosing underlying issues within the telescope or camera setup.
-In the past, I relied on a combination of `ffmpeg` and `AstroImageJ` to achieve this. However, I wanted a more seamless, immediate solution directly integrated into [Siril](https://siril.org). 
-As I am not a Python developer, I warmly encourage anyone with the patience and expertise to reach out and report any bugs or suggest improvements. 
-Tested and working on **Debian GNU/Linux 13 (trixie)**. :-)
+I enjoy quickly scrolling through the images captured by my telescope, adding the dimension of time to static frames. Watching satellite trails, plane streaks, or potential transients/asteroids move across the sensor adds an extra layer of excitement to the hobby.
+It is also an excellent method for diagnosing underlying issues within the telescope or camera setup (drift, bloating, or sensor artifacts).
+Previously, I relied on `ffmpeg` and `AstroImageJ`, but I wanted a seamless, immediate solution integrated into [Siril](https://siril.org). 
+
+*Tested and working on **Debian GNU/Linux 13 (trixie)**.*
 
 ---
 ## 🤖 AI Development Disclaimer
-This software was co-created through a human-AI collaboration. The architectural requirements, structural constraints (such as Siril's runtime path isolation, localized relative directory handling, granular cache multi-threading), debugging verification, and operational logic were directed and designed by the repository owner. The physical source code implementation was synthesized by an Artificial Intelligence assistant based on those precise specifications. 
+This software was co-created through a human-AI collaboration. The architectural requirements, structural constraints (Siril runtime path isolation, relative directory handling, multi-threaded cache), and operational logic were designed by the repository owner. The source code implementation was synthesized by an AI assistant based on those precise specifications.
 
 ---
 ## 📄 License
-This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**. 
-See the [LICENSE](LICENSE) file for the full text and details regarding permissions, conditions, and limitations.
+This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**.
