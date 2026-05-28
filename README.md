@@ -1,5 +1,5 @@
 # 🎯 FITS Image Player v1.0.0092
-### Native Astrophotography Review & Streaming Engine for Siril
+### Astrophotography Review & Streaming Engine for Siril
 
 ![FITS Image Player GUI](./immagini/GUI.png)
 
@@ -47,7 +47,7 @@ This application operates as a frame playback control panel featuring an integra
 <br>
 
 ![FITS Image Player PLAYER](./immagini/PLAYER.png)
-*The Playback Interface with Telemetry and Grid*
+*The Playback Interface with Telemetry*
 
 <br>
 
